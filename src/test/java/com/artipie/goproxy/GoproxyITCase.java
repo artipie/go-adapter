@@ -1,4 +1,4 @@
-/**
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Yegor Bugayenko
@@ -23,8 +23,10 @@
  */
 package com.artipie.goproxy;
 
+import com.artipie.asto.Storage;
+import com.artipie.asto.fs.FileStorage;
 import com.jcabi.log.Logger;
-import com.yegor256.asto.Storage;
+import io.vertx.reactivex.core.Vertx;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,17 +36,13 @@ import org.cactoos.io.TeeInput;
 import org.cactoos.scalar.LengthOf;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Integration case for {@link Goproxy}.
  *
- * @author Yegor Bugayenko (yegor256@gmail.com)
- * @version $Id$
  * @since 0.1
  * @checkstyle ClassDataAbstractionCouplingCheck (500 lines)
  */
@@ -52,36 +50,15 @@ import org.junit.rules.TemporaryFolder;
 public final class GoproxyITCase {
 
     /**
-     * Temp folder for all tests.
-     */
-    @Rule
-    @SuppressWarnings("PMD.BeanMembersShouldSerialize")
-    public TemporaryFolder folder = new TemporaryFolder();
-
-    /**
-     * Make sure Go is here.
-     * @throws Exception If fails
-     */
-    @Before
-    public void goExists() throws Exception {
-        Assume.assumeThat(
-            "Go is NOT present at the build machine",
-            new ProcessBuilder()
-                .command("which", "go")
-                .start()
-                .waitFor(),
-            Matchers.equalTo(0)
-        );
-    }
-
-    /**
      * RPM works.
+     * @param folder Temporary folder that auto-created on method starts
+     *  and deleted when it finishes
      * @throws Exception If some problem inside
      */
     @Test
     @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
-    public void savesAndLoads() throws Exception {
-        final Path repo = this.folder.newFolder("repo").toPath();
+    public void savesAndLoads(@TempDir final Path folder) throws Exception {
+        final Path repo = folder.resolve("repo");
         for (final String file
             : new String[] {"bar.go", "go.mod", "texts/test.txt"}) {
             new LengthOf(
@@ -91,12 +68,14 @@ public final class GoproxyITCase {
                 )
             ).intValue();
         }
-        final Storage storage = new Storage.Simple(repo);
-        final Goproxy goproxy = new Goproxy(storage);
+        final Vertx vertx = Vertx.vertx();
+        final Storage storage = new FileStorage(repo, vertx.fileSystem());
+        final Goproxy goproxy = new Goproxy(storage, vertx);
         goproxy.update("example.com/foo/bar", "0.0.123").blockingAwait();
         goproxy.update("example.com/foo/bar", "0.0.124").blockingAwait();
-        final Path stdout = this.folder.newFile("stdout.txt").toPath();
-        final Path home = this.folder.newFolder("home").toPath();
+        final Path stdout = folder.resolve("stdout.txt");
+        final Path home = folder.resolve("home");
+        Files.createDirectory(home);
         Files.write(
             Paths.get(home.toString(), "go.mod"),
             String.join(
@@ -153,4 +132,19 @@ public final class GoproxyITCase {
         );
     }
 
+    /**
+     * Make sure Go is here.
+     * @throws Exception If fails
+     */
+    @BeforeAll
+    static void goExists() throws Exception {
+        MatcherAssert.assertThat(
+            "Go is NOT present at the build machine",
+            new ProcessBuilder()
+                .command("which", "go")
+                .start()
+                .waitFor(),
+            Matchers.equalTo(0)
+        );
+    }
 }
