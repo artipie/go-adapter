@@ -61,11 +61,8 @@ public final class GoproxyITCase {
             folder = Files.createTempDirectory("goproxy-it-");
             this.savesAndLoadsActual(folder);
         } finally {
-            if (folder != null)  {
-                MatcherAssert.assertThat(
-                    "Could not delete temporary directory",
-                    this.deleteDirectoryRecursive(folder)
-                );
+            if (folder != null) {
+                this.tryToDeleteDirectory(folder);
             }
         }
     }
@@ -170,15 +167,12 @@ public final class GoproxyITCase {
     /**
      * Walk throw tree and delete it recursive.
      * @param directory Directory to delete
-     * @return Status of operation: true if succeed, false otherwise
-     * @throws IOException If some path could not be deleted
+     * @throws IOException If some error occurred
      */
-    private boolean deleteDirectoryRecursive(final Path directory) throws IOException {
-        return Files.walk(directory)
+    private void tryToDeleteDirectory(final Path directory) throws IOException {
+        Files.walk(directory)
             .sorted(Comparator.reverseOrder())
             .map(Path::toFile)
-            .map(File::delete)
-            .reduce(Boolean::logicalAnd)
-            .orElse(true);
+            .forEach(File::delete);
     }
 }
