@@ -27,9 +27,12 @@ import com.artipie.asto.Storage;
 import com.artipie.asto.fs.FileStorage;
 import com.jcabi.log.Logger;
 import io.vertx.reactivex.core.Vertx;
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
 import org.cactoos.io.OutputTo;
 import org.cactoos.io.ResourceOf;
 import org.cactoos.io.TeeInput;
@@ -38,7 +41,6 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Integration case for {@link Goproxy}.
@@ -48,16 +50,49 @@ import org.junit.jupiter.api.io.TempDir;
  */
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public final class GoproxyITCase {
-
     /**
-     * RPM works.
-     * @param folder Temporary folder that auto-created on method starts
-     *  and deleted when it finishes
+     * Creates temporary dir for repo storage and runs actual test.
      * @throws Exception If some problem inside
      */
     @Test
+    public void savesAndLoads() throws Exception {
+        Path folder = null;
+        try {
+            folder = Files.createTempDirectory("goproxy-it-");
+            this.savesAndLoadsActual(folder);
+        } finally {
+            if (folder != null)  {
+                MatcherAssert.assertThat(
+                    "Could not delete temporary directory",
+                    this.deleteDirectoryRecursive(folder)
+                );
+            }
+        }
+    }
+
+    /**
+     * Make sure Go is here.
+     * @throws Exception If fails
+     */
+    @BeforeAll
+    static void goExists() throws Exception {
+        MatcherAssert.assertThat(
+            "Go is NOT present at the build machine",
+            new ProcessBuilder()
+                .command("which", "go")
+                .start()
+                .waitFor(),
+            Matchers.equalTo(0)
+        );
+    }
+
+    /**
+     * Actual test GoProxy works.
+     * @param folder Folder for repo storage
+     * @throws Exception If some problem inside
+     */
     @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
-    public void savesAndLoads(@TempDir final Path folder) throws Exception {
+    private void savesAndLoadsActual(final Path folder) throws Exception {
         final Path repo = folder.resolve("repo");
         for (final String file
             : new String[] {"bar.go", "go.mod", "texts/test.txt"}) {
@@ -133,18 +168,17 @@ public final class GoproxyITCase {
     }
 
     /**
-     * Make sure Go is here.
-     * @throws Exception If fails
+     * Walk throw tree and delete it recursive.
+     * @param directory Directory to delete
+     * @return Status of operation: true if succeed, false otherwise
+     * @throws IOException If some path could not be deleted
      */
-    @BeforeAll
-    static void goExists() throws Exception {
-        MatcherAssert.assertThat(
-            "Go is NOT present at the build machine",
-            new ProcessBuilder()
-                .command("which", "go")
-                .start()
-                .waitFor(),
-            Matchers.equalTo(0)
-        );
+    private boolean deleteDirectoryRecursive(final Path directory) throws IOException {
+        return Files.walk(directory)
+            .sorted(Comparator.reverseOrder())
+            .map(Path::toFile)
+            .map(File::delete)
+            .reduce(Boolean::logicalAnd)
+            .orElse(true);
     }
 }
