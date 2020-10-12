@@ -24,6 +24,7 @@
 package com.artipie.http;
 
 import com.artipie.asto.Storage;
+import com.artipie.http.auth.Action;
 import com.artipie.http.auth.Authentication;
 import com.artipie.http.auth.BasicIdentities;
 import com.artipie.http.auth.Identities;
@@ -57,11 +58,6 @@ public final class GoSlice implements Slice {
      * Text header.
      */
     private static final String TEXT_PLAIN = "text/plain";
-
-    /**
-     * Permission name.
-     */
-    private static final String DOWNLOAD = "download";
 
     /**
      * Origin.
@@ -112,7 +108,7 @@ public final class GoSlice implements Slice {
                 ".+/@latest",
                 new SliceAuth(
                     new LatestSlice(storage),
-                    new Permission.ByName(GoSlice.DOWNLOAD, perms), users
+                    new Permission.ByName(perms, Action.Standard.READ), users
                 )
             ),
             new RtRulePath(
@@ -147,7 +143,7 @@ public final class GoSlice implements Slice {
                 new SliceDownload(storage),
                 new Headers.From("content-type", type)
             ),
-            new Permission.ByName(GoSlice.DOWNLOAD, perms),
+            new Permission.ByName(perms, Action.Standard.READ),
             users
         );
     }
