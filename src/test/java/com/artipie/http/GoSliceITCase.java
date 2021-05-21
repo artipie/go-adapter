@@ -94,7 +94,7 @@ public final class GoSliceITCase {
         GoSliceITCase.startContainer(anonymous);
         MatcherAssert.assertThat(
             GoSliceITCase.golang
-                .execInContainer("go", "get", "-insecure", "golang.org/x/time").getStderr(),
+                .execInContainer("go", "get", "golang.org/x/time").getStderr(),
             new StringContains(String.format("go: golang.org/x/time upgrade => %s", VERSION))
         );
     }
@@ -125,9 +125,11 @@ public final class GoSliceITCase {
                 port
             );
         }
-        GoSliceITCase.golang = new GenericContainer<>("golang:latest")
+        GoSliceITCase.golang = new GenericContainer<>("golang:1.15.12")
             .withEnv("GOPROXY", url)
             .withEnv("GO111MODULE", "on")
+            .withEnv("GOSUMDB", "off")
+            .withEnv("GOINSECURE", "host.testcontainers.internal*")
             .withCommand("tail", "-f", "/dev/null");
         GoSliceITCase.golang.start();
     }

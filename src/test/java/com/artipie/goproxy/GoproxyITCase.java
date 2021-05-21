@@ -123,7 +123,7 @@ public final class GoproxyITCase {
      */
     private static class GoContainer extends GenericContainer<GoContainer> {
         GoContainer() {
-            super("golang:latest");
+            super("golang:1.15.12");
         }
     }
 }
